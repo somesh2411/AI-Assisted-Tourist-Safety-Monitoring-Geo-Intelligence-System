@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location Test - Debug Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .result {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border-left: 4px solid #007bff;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left-color: #dc3545;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border-left-color: #28a745;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .coords {
+            font-family: monospace;
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 3px;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ Location Debug Tool</h1>
+        <p>This tool will help us debug why you're getting Chennai coordinates instead of Vellore.</p>
+        
+        <div>
+            <button onclick="testHighAccuracy()">🎯 Test High Accuracy GPS</button>
+            <button onclick="testLowAccuracy()">📶 Test Network Location</button>
+            <button onclick="testWithoutCache()">🔄 Test Fresh Location</button>
+            <button onclick="clearResults()">🗑️ Clear Results</button>
+        </div>
+        
+        <div id="results"></div>
+        
+        <div class="result">
+            <h3>Expected for Vellore:</h3>
+            <div class="coords">Latitude: ~12.9165° N</div>
+            <div class="coords">Longitude: ~79.1325° E</div>
+        </div>
+        
+        <div class="result">
+            <h3>What you're currently getting (Chennai):</h3>
+            <div class="coords">Latitude: ~13.0827° N</div>
+            <div class="coords">Longitude: ~80.2707° E</div>
+        </div>
+    </div>
+
+    <script>
+        function addResult(content, isError = false) {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${isError ? 'error' : 'success'}`;
+            div.innerHTML = content;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        function testHighAccuracy() {
+            addResult('🎯 Testing high accuracy GPS location...');
+            
+            if (!navigator.geolocation) {
+                addResult('❌ Geolocation not supported in this browser', true);
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const coords = position.coords;
+                    const timestamp = new Date(position.timestamp);
+                    
+                    addResult(`
+                        ✅ <strong>High Accuracy Location Retrieved</strong><br>
+                        <div class="coords">Latitude: ${coords.latitude.toFixed(8)}</div>
+                        <div class="coords">Longitude: ${coords.longitude.toFixed(8)}</div>
+                        <div class="coords">Accuracy: ${Math.round(coords.accuracy)} meters</div>
+                        <div class="coords">Altitude: ${coords.altitude ? coords.altitude.toFixed(2) + 'm' : 'Not available'}</div>
+                        <div class="coords">Speed: ${coords.speed ? coords.speed.toFixed(2) + 'm/s' : 'Not available'}</div>
+                        <div class="coords">Timestamp: ${timestamp.toLocaleString()}</div>
+                        <div class="coords">Distance from Vellore center: ${calculateDistance(coords.latitude, coords.longitude, 12.9165, 79.1325).toFixed(2)} km</div>
+                        <div class="coords">Distance from Chennai center: ${calculateDistance(coords.latitude, coords.longitude, 13.0827, 80.2707).toFixed(2)} km</div>
+                    `);
+                },
+                (error) => {
+                    let errorMsg = '';
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMsg = 'Location permission denied. Please allow location access.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMsg = 'Location information unavailable. GPS might be off.';
+                            break;
+                        case error.TIMEOUT:
+                            errorMsg = 'Location request timed out. GPS signal might be weak.';
+                            break;
+                        default:
+                            errorMsg = 'Unknown error occurred while retrieving location.';
+                            break;
+                    }
+                    addResult(`❌ <strong>High Accuracy Failed:</strong> ${errorMsg}`, true);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 15000,
+                    maximumAge: 0
+                }
+            );
+        }
+
+        function testLowAccuracy() {
+            addResult('📶 Testing network-based location...');
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const coords = position.coords;
+                    const timestamp = new Date(position.timestamp);
+                    
+                    addResult(`
+                        ✅ <strong>Network Location Retrieved</strong><br>
+                        <div class="coords">Latitude: ${coords.latitude.toFixed(8)}</div>
+                        <div class="coords">Longitude: ${coords.longitude.toFixed(8)}</div>
+                        <div class="coords">Accuracy: ${Math.round(coords.accuracy)} meters</div>
+                        <div class="coords">Timestamp: ${timestamp.toLocaleString()}</div>
+                        <div class="coords">Distance from Vellore: ${calculateDistance(coords.latitude, coords.longitude, 12.9165, 79.1325).toFixed(2)} km</div>
+                        <div class="coords">Distance from Chennai: ${calculateDistance(coords.latitude, coords.longitude, 13.0827, 80.2707).toFixed(2)} km</div>
+                    `);
+                },
+                (error) => {
+                    addResult(`❌ <strong>Network Location Failed:</strong> ${error.message}`, true);
+                },
+                {
+                    enableHighAccuracy: false,
+                    timeout: 30000,
+                    maximumAge: 300000
+                }
+            );
+        }
+
+        function testWithoutCache() {
+            addResult('🔄 Testing fresh location (no cache)...');
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const coords = position.coords;
+                    
+                    addResult(`
+                        ✅ <strong>Fresh Location Retrieved</strong><br>
+                        <div class="coords">Latitude: ${coords.latitude.toFixed(8)}</div>
+                        <div class="coords">Longitude: ${coords.longitude.toFixed(8)}</div>
+                        <div class="coords">Accuracy: ${Math.round(coords.accuracy)} meters</div>
+                        <div class="coords">Is this close to Vellore? ${calculateDistance(coords.latitude, coords.longitude, 12.9165, 79.1325) < 50 ? '✅ YES' : '❌ NO'}</div>
+                    `);
+                },
+                (error) => {
+                    addResult(`❌ <strong>Fresh Location Failed:</strong> ${error.message}`, true);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 20000,
+                    maximumAge: 0  // No cache
+                }
+            );
+        }
+
+        // Helper function to calculate distance between two points
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Radius of the Earth in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Auto-run high accuracy test on load
+        window.addEventListener('load', () => {
+            setTimeout(testHighAccuracy, 1000);
+        });
+    </script>
+</body>
+</html>
